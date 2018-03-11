@@ -49,8 +49,6 @@ void main()
     //vec3 diffuse = material.diffuse * max(0, dot(L,world_normal));
     float diffuse = max(0, dot(L,world_normal));
     
-    
-    
     vec3 diffuseColor = material.diffuse * floor(diffuse * levels) * scaleFactor;
     
     vec3 specular = vec3(0,0,0);
@@ -60,13 +58,18 @@ void main()
         specular = material.specular * pow( max(0, dot( H, world_normal)), material.shininess);
     }
     
+    //float edge = max(0,dot(world_normal,V));
+    //color = texture(1,edge)*(texture(diffuseColor,1) + texture(specular,1));
+    
+    
     //Black color if dot product is smaller than 0.3
     //else keep the same colors
     float specMask = (pow(dot(H, world_normal), material.shininess) > 0.4) ? 1 : 0;
-    float edgeDetection = (dot(V, world_normal) > 0.2) ? 1 : 0;
+    float edgeDetection = (dot(V, world_normal) > 0.01) ? 1 : 0;
     
     vec3 light = edgeDetection * (material.ambient + diffuseColor + specular* specMask);
     color = vec4(light,1.0f);
+    
 
     
 }
