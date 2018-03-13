@@ -28,7 +28,8 @@ void main()
     
     //convert in world coords
     world_pos = mat3(model) * position;//careful here
-    world_normal = normalize(mat3(model) *normal);
+    //world_normal = normalize(mat3(model) *normal);
+    world_normal = mat3(transpose(inverse(model))) * normal;
     gl_Position = projection * modelview * vec4(position,1.0);
 }
 

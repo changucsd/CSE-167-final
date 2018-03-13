@@ -28,6 +28,14 @@ public:
 	static void idle_callback();
 	static void display_callback(GLFWwindow*);
 	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static GLint loadTexture(char const * path);
+    
+    static void renderScene(GLuint shader);
+    static void renderCube();
+    static void renderQuad();
+    
+
+    
 };
 
 #endif
