@@ -12,6 +12,8 @@
 #include <GLFW/glfw3.h>
 #include "Cube.h"
 #include "shader.h"
+#include <vector>
+#include <string>
 
 
 class Window
@@ -33,7 +35,15 @@ public:
     static void renderScene(GLuint shader);
     static void renderCube();
     static void renderQuad();
+    //static void renderObj(Cube*);
     
+    static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+    static glm::vec3 trackBallmapping(float x,float y);
+    static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+    static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+    
+    static unsigned int loadCubemap(std::vector<std::string> faces);
+   
 
     
 };

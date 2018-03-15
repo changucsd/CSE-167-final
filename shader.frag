@@ -72,7 +72,6 @@ void main()
     color = vec4(light,1.0f);
     
 
-    
 }
 
 
