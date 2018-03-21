@@ -3,6 +3,7 @@
 
 #include <iostream>
 
+
 #define GLFW_INCLUDE_GLEXT
 #ifdef __APPLE__
 #define GLFW_INCLUDE_GLCOREARB
@@ -10,11 +11,26 @@
 #include <GL/glew.h>
 #endif
 #include <GLFW/glfw3.h>
-#include "Cube.h"
 #include "shader.h"
+
+#include "Transform.h"
+#include "Node.h"
+#include "Geometry.h"
+
+#include "TreeGenerator.h"
+
 #include <vector>
 #include <string>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
+#include "Cube.h"
+#include "TreeGenerator.h"
+#include "Transform.h"
+#include "TerrainGenerator.h"
 
+#define MAPSIZE 50
+
+class Cube;
 
 class Window
 {
@@ -35,7 +51,7 @@ public:
     static void renderScene(GLuint shader);
     static void renderCube();
     static void renderQuad();
-    //static void renderObj(Cube*);
+    static void renderObj(Cube * myobj);
     
     static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     static glm::vec3 trackBallmapping(float x,float y);

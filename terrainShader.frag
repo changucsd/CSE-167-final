@@ -17,7 +17,7 @@ uniform vec3 viewPos;
 uniform vec3 myColor;
 uniform float shadowC;
 
-uniform float terrain;
+
 
 const int levels = 3;
 const float scaleFactor = 1.0 / levels;
@@ -65,31 +65,18 @@ void main()
     //vec3 color = texture(diffuseTexture, fs_in.TexCoords).rgb;
     vec3 color;
     
-    
-    if(terrain == 1.0f)
+    if(FragPos.y < 0.0f)
     {
-        
-        if(fs_in.FragPos.y < -2.0f)
-        {
-            color = vec3(0.0f, 0.4f, 1.0f);
-        }
-        else if (fs_in.FragPos.y < -1.0f)
-        {
-            color = vec3(1.0f,1.0f,0.8f);
-        }
-        else
-        {
-            color = myColor;
-        }
-         
-        //color = vec3(0.0f, 0.4f, 0.1f);
+        color = vec3(0, 0.4, 1);
     }
-    
+    else if (FragPos.y < 2.5f)
+    {
+        color = vec3(1,1,0.6);
+    }
     else
     {
         color = myColor;
     }
-    
     
     vec3 normal = normalize(fs_in.Normal);
     vec3 lightColor = vec3(0.5);

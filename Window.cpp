@@ -5,13 +5,20 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 const char* window_title = "GLFW Starter Project";
-Cube * cube;
+Cube * dragon;
+Cube * bear;
+Cube * bunny;
+
+Cube * trunk;
+Cube * sphere;
+
 GLint shaderProgram;
 GLint shaderPlane;
 GLint simpleDepthShader;
 GLint debugDepthQuad;
 
 GLint Skyshader;
+
 
 GLuint planeVAO,planeVBO, depthMapFBO, depthMap,skyboxVAO,skyboxVBO;
 unsigned int botTexture, grassTexture,  cubemapTexture,woodTexture;
@@ -22,20 +29,48 @@ GLuint quadVBO = 0;
 GLuint cubeVAO = 0;
 GLuint cubeVBO = 0;
 
-GLuint objVAO = 0;
-GLuint objVBO = 0;
-
 const GLuint SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 unsigned int SCR_WIDTH;
 unsigned int SCR_HEIGHT;
 
 float lastX,lastY;
 bool firstMouse;
-bool leftPress, rightPress;
+bool leftPress, rightPress,  shadowmap;
+
+float shadow;
 
 float yaw   = -90.0f;    // yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 float pitch =  0.0f;
 float fov   =  45.0f;
+
+int treeLevel;
+
+glm::mat4 skyP;
+
+// trees and map
+Transform sceneGraph;
+Transform * theTree;
+Transform * theTree1;
+Transform * theTree2;
+TreeGenerator* treeGenerator;
+
+Geometry * ground;
+Transform * theMap;
+TerrainGenerator * terrain;
+
+Transform * treePos;
+Transform * treePos1;
+Transform * treePos2;
+
+
+glm::vec3 randomPos;
+glm::vec3 randomPos2;
+glm::vec3 randomPos3;
+
+glm::vec3 randomPos4;
+glm::vec3 randomPos5;
+glm::vec3 randomPos6;
+
 
 // On some systems you need to change this to the absolute path
 #define VERTEX_SHADER_PATH "shader.vert"
@@ -57,12 +92,13 @@ float fov   =  45.0f;
 
 
 
+
 // Default camera parameters
-glm::vec3 cam_pos(0.0f, 3.0f, 7.0f);		// e  | Position of camera
-glm::vec3 cam_front(0.0f, -3.0f, -7.0f);	// d  | This is where the camera looks at
+glm::vec3 cam_pos(0.0f, 20.0f, 35.0f);		// e  | Position of camera
+glm::vec3 cam_front(0.0f, -20.0f, -35.0f);	// d  | This is where the camera looks at
 glm::vec3 cam_up(0.0f, 1.0f, 0.0f);			// up | What orientation "up" is
 
-glm::vec3 lightPos(3.0f, 4.0f, -1.0f);
+glm::vec3 lightPos(0.0f, 10.0f, 0.0f);
 
 int Window::width;
 int Window::height;
@@ -128,16 +164,46 @@ GLfloat skyboxVertices[] = {
 
 void Window::initialize_objects()
 {
-    
-	cube = new Cube("sphere.obj");
 
-    cube->setAmbient(glm::vec3(0.0f, 0.0f, 0.8f));
-    cube->setDiffuse(glm::vec3(1.0f, 0.5f, 0.8f));
-    cube->setSpecular(glm::vec3(0.9f, 0.9f, 0.9f));
-    cube->setShiness(32.0f);
-    
-    printf("finish!!!!!!\n");
+    dragon = new Cube("dragon.obj");
+    bear = new Cube("bear.obj");
+    bunny = new Cube("bunny.obj");
 
+
+    
+    treeGenerator = new TreeGenerator();
+    treeLevel = 1;
+
+    theTree = treeGenerator->generateTree(treeLevel);
+    theTree1 = treeGenerator->generateTree(treeLevel);
+    theTree2 = treeGenerator->generateTree(treeLevel);
+    
+    terrain = new TerrainGenerator();
+    
+    ground = terrain->generateTerrain(MAPSIZE);
+    
+    treePos = (new Transform())->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+    treePos1 = (new Transform())->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+    treePos2 = (new Transform())->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+    
+    sceneGraph.addChild(ground);
+    
+    treePos->addChild(theTree);
+    treePos1->addChild(theTree1);
+    treePos2->addChild(theTree2);
+    
+    sceneGraph.addChild(treePos);
+    sceneGraph.addChild(treePos1);
+    sceneGraph.addChild(treePos2);
+    
+    randomPos = ground -> getVertices()[rand() % ground -> getVertices().size()];
+    randomPos2 = ground -> getVertices()[rand() % ground -> getVertices().size()];
+    
+    randomPos3 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+    randomPos4 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+    randomPos5 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+    randomPos6 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+    
     
 	// Load the shader program. Make sure you have the correct filepath up top
 	shaderProgram = LoadShaders(VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
@@ -145,6 +211,7 @@ void Window::initialize_objects()
     simpleDepthShader = LoadShaders(VERTEX_SIMPLE_PATH, FRAGMENT_SIMPLE_PATH);
     debugDepthQuad = LoadShaders(VERTEX_DEBUG_PATH, FRAGMENT_DEBUG_PATH);
     Skyshader = LoadShaders(VERTEX_Sky_PATH, FRAGMENT_Sky_PATH);
+
     
    
     glEnable(GL_DEPTH_TEST);
@@ -182,8 +249,8 @@ void Window::initialize_objects()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    //glEnableVertexAttribArray(2);
+    //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glBindVertexArray(0);
 
     
@@ -207,17 +274,16 @@ void Window::initialize_objects()
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
-    // skybox
-   
+
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
+    
     glBindVertexArray(skyboxVAO);
     glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
     //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     glUseProgram(debugDepthQuad);
@@ -228,12 +294,26 @@ void Window::initialize_objects()
 // Treat this as a destructor function. Delete dynamically allocated memory here.
 void Window::clean_up()
 {
-	delete(cube);
+
+    delete(bunny);
+    delete(bear);
+    delete(dragon);
+
+    
+    
 	glDeleteProgram(shaderProgram);
     glDeleteProgram(shaderPlane);
     glDeleteProgram(simpleDepthShader);
     glDeleteProgram(debugDepthQuad);
     glDeleteProgram(Skyshader);
+
+    
+
+    glDeleteVertexArrays(1, &quadVAO);
+    glDeleteBuffers(1, &quadVBO);
+    glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteBuffers(1, &cubeVBO);
+    
 }
 
 GLFWwindow* Window::create_window(int width, int height)
@@ -293,6 +373,14 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
 	// Set the viewport size. This is the only matrix that OpenGL maintains for us in modern OpenGL!
     SCR_WIDTH = width;
     SCR_HEIGHT = height;
+    
+    firstMouse = true;
+    leftPress = false;
+    rightPress = false;
+    
+    shadow = 1.0f;
+    shadowmap = false;
+    
 	glViewport(0, 0, width, height);
 
 	if (height > 0)
@@ -302,7 +390,9 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
 		V = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
         */
         P = glm::perspective(glm::radians(fov), (float)width / (float)height, 0.1f, 1500.0f);
+        skyP = P;
         V = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
+        
 	}
 }
 
@@ -327,16 +417,15 @@ void Window::display_callback(GLFWwindow* window)
 	// Render the cube
 	cube->draw(shaderProgram);
     */
-    
-    
+
     // render
     // ------
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    float near_plane = 1.0f, far_plane = 7.5f;
-    glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-    glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0)); // light position!
+    float near_plane = 1.0f, far_plane = 20.0f;
+    glm::mat4 lightProjection = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, near_plane, far_plane);
+    glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 0.0, 1.0)); // light position!
     glm::mat4 lightSpaceMatrix = lightProjection * lightView;
     
     glUseProgram(simpleDepthShader);
@@ -358,7 +447,6 @@ void Window::display_callback(GLFWwindow* window)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(shaderPlane);
-
     glUniformMatrix4fv(glGetUniformLocation(shaderPlane, "projection"), 1, GL_FALSE, &Window::P[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shaderPlane, "view"), 1, GL_FALSE, &Window::V[0][0]);
     //glUniform1i(glGetUniformLocation(shaderPlane,  "diffuseTexture"), 0);
@@ -369,27 +457,13 @@ void Window::display_callback(GLFWwindow* window)
     glUniform3fv(glGetUniformLocation(shaderPlane, "lightPos"), 1, &lightPos[0]);
     glUniformMatrix4fv(glGetUniformLocation(shaderPlane, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
     
+    glUniform1f(glGetUniformLocation(shaderPlane, "shadowC"), shadow);
+    
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, woodTexture);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, depthMap);
-
     renderScene(shaderPlane);
-    
-    // reset viewport
-    //printf("Hi hi hi %u %u \n", SCR_WIDTH, SCR_HEIGHT);
-    
-    //glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    // render Depth map to quad for visual debugging
-    // ---------------------------------------------
-    glUseProgram(debugDepthQuad);
-    glUniform1f(glGetUniformLocation(debugDepthQuad, "near_plane"),near_plane);
-    glUniform1f(glGetUniformLocation(debugDepthQuad, "far_plane"),far_plane);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, depthMap);
-    //renderQuad();
     
     
     // render skybox
@@ -402,7 +476,7 @@ void Window::display_callback(GLFWwindow* window)
     GLint viewLoc  = glGetUniformLocation(Skyshader,  "view");
     GLint skybox = glGetUniformLocation(Skyshader,  "skybox");
     
-    glUniformMatrix4fv(projectLoc, 1, GL_FALSE, &Window::P[0][0]);
+    glUniformMatrix4fv(projectLoc, 1, GL_FALSE, &skyP[0][0]);
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &Window::V[0][0]);
     glUniform1i(skybox, 0);
     
@@ -412,6 +486,25 @@ void Window::display_callback(GLFWwindow* window)
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
     glDepthFunc(GL_LESS); // set depth function back to default
+    // reset viewport
+    //printf("Hi hi hi %u %u \n", SCR_WIDTH, SCR_HEIGHT);
+    
+    if(shadowmap == true)
+    {
+        glViewport(0, 0, 300, 300);
+        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        // render Depth map to quad for visual debugging
+        // ---------------------------------------------
+        glUseProgram(debugDepthQuad);
+        glUniform1f(glGetUniformLocation(debugDepthQuad, "near_plane"),near_plane);
+        glUniform1f(glGetUniformLocation(debugDepthQuad, "far_plane"),far_plane);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        renderQuad();
+    }
+    
+
     
     
 	// Swap buffers
@@ -431,8 +524,380 @@ void Window::key_callback(GLFWwindow* window, int key, int scancode, int action,
 			// Close the window. This causes the program to also terminate.
 			glfwSetWindowShouldClose(window, GL_TRUE);
 		}
+        
+        else if (key == GLFW_KEY_O) // control shadowmap
+        {
+            shadowmap = !shadowmap;
+        }
+        else if (key == GLFW_KEY_P) // control shadow effect
+        {
+            shadow = -shadow;
+        }
+        else if (key == GLFW_KEY_G)
+        {
+           
+            sceneGraph.removeChild(ground);
+            delete ground;
+            ground = terrain->generateTerrain(MAPSIZE);
+            treePos->resetTranslate();
+            treePos->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+            
+            treePos1->resetTranslate();
+            treePos1->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+            
+            treePos2->resetTranslate();
+            treePos2->translate(ground -> getVertices()[rand() % ground -> getVertices().size()]);
+            
+            sceneGraph.addChild(ground);
+            
+            
+            randomPos = ground -> getVertices()[rand() % ground -> getVertices().size()];
+            randomPos2 = ground -> getVertices()[rand() % ground -> getVertices().size()];
+            
+            randomPos3 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+            randomPos4 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+            randomPos5 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+            randomPos6 = ground -> getVertices()[rand() % ground -> getVertices().size()];;
+            
+     
+            
+        }
+        
+        else if (key == GLFW_KEY_H)
+        {
+            treePos->removeChild(theTree);
+            treePos1->removeChild(theTree1);
+            treePos2->removeChild(theTree2);
+            
+            delete theTree;
+            
+            treeLevel += 1;
+            if(treeLevel >4)
+            {
+                treeLevel = 1;
+            }
+            
+            theTree = treeGenerator->generateTree(treeLevel);
+            theTree1 = treeGenerator->generateTree(treeLevel);
+            theTree2 = treeGenerator->generateTree(treeLevel);
+            
+            treePos->addChild(theTree);
+            treePos1->addChild(theTree1);
+            treePos2->addChild(theTree2);
+            
+        }
 	}
 }
+
+
+// renders the 3D scene
+// --------------------
+void Window::renderScene(GLuint shader)
+{
+    
+
+    glm::mat4 model;
+    glm::vec3 setColor;
+    
+    glUniform1f(glGetUniformLocation(shader, "terrain"),0.0f);
+    
+    setColor = glm::vec3(0.658824,0.658824,0.658824);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(bear);
+    
+    setColor = glm::vec3(1.0,0.8,1.0);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos2);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(bunny);
+    
+    setColor = glm::vec3(1, 0.2, 0);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos3);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(dragon);
+    
+    glUniform1f(glGetUniformLocation(shader, "terrain"),0.0f);
+    
+    setColor = glm::vec3(0.658824,0.658824,0.658824);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos4);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(bear);
+    
+    setColor = glm::vec3(1.0,0.8,1.0);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos5);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(bunny);
+    
+    setColor = glm::vec3(1, 0.2, 0);
+    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, woodTexture);
+    model = glm::mat4(1);
+    model = glm::translate(model, randomPos6);
+    model = glm::translate(model, glm::vec3(0,1,0));
+    model = glm::scale(model, glm::vec3(0.3f));
+    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    renderObj(dragon);
+     
+    
+    /*
+     setColor = glm::vec3(0.419608,0.556863,0.137255);
+     glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+     glActiveTexture(GL_TEXTURE0);
+     glBindTexture(GL_TEXTURE_2D, woodTexture);
+     model = glm::mat4(1);
+     model = glm::translate(model, glm::vec3(1.5f, 0.5f, 0.0f));
+     model = glm::scale(model, glm::vec3(1.0f));
+     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+     renderObj(sphere);
+    
+    
+     setColor = glm::vec3( 0.647059,0.164706,0.164706);
+     glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+     glActiveTexture(GL_TEXTURE0);
+     glBindTexture(GL_TEXTURE_2D, woodTexture);
+    
+     model = glm::mat4(1);
+     model = glm::translate(model, glm::vec3(-1.5f, 2.0f, 1.0f));
+     model = glm::scale(model, glm::vec3(0.02f));
+     model = glm::rotate(model, 90.0f / 180.0f * glm::pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f)) ;
+    
+     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+     renderObj(trunk);
+     */
+
+    
+    sceneGraph.draw(glm::mat4(1), shader);
+    
+  
+    
+}
+
+ void Window::renderObj(Cube * myObj)
+ {
+    
+     glBindVertexArray(myObj->VAO);
+     // Tell OpenGL to draw with triangles, using 36 indices, the type of the indices, and the offset to start from
+     glDrawElements(GL_TRIANGLES, myObj->indices.size(), GL_UNSIGNED_INT, 0);
+     // Unbind the VAO when we're done so we don't accidentally draw extra stuff or tamper with its bound buffers
+     glBindVertexArray(0);
+ 
+ }
+
+
+
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+
+void Window::renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        GLfloat quadVertices[] = {
+            // positions        // texture Coords
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+
+
+
+glm::vec3 Window::trackBallmapping(float x,float y)
+{
+    //printf("width and height is %d %d\n", width, height);
+    glm::vec3 vector;
+    float d;
+    vector.x = (2.0f*x - width)/width;
+    vector.y = (height - 2.0f*y)/height;
+    vector.z = 0.0f;
+    
+    d = glm::length(vector);
+    if(d > 1.0f)
+    {
+        d = 1.0f;
+    }
+    
+    vector.z = sqrt(1.001 - d*d);
+    vector = glm::normalize(vector);
+    
+    return vector;
+}
+
+void Window::mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    //printf("Mouse is called");
+    if(leftPress == true)
+    {
+        
+        glfwGetCursorPos(window, &xpos, &ypos);
+        
+        if(firstMouse)
+        {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+        }
+        
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+        
+        
+        float sensitivity = 0.2f; // change this value to your liking
+        xoffset *= sensitivity;
+        yoffset *= sensitivity;
+        
+        yaw += xoffset;
+        pitch += yoffset;
+        
+        // make sure that when pitch is out of bounds, screen doesn't get flipped
+        if (pitch > 89.0f)
+            pitch = 89.0f;
+        if (pitch < -89.0f)
+            pitch = -89.0f;
+        
+        glm::vec3 front;
+        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front.y = sin(glm::radians(pitch));
+        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        cam_front = glm::normalize(front);
+
+        
+        lastX = xpos;
+        lastY = ypos;
+    }
+    
+    else if (rightPress == true)
+    {
+        //glfwGetCursorPos(window, &xpos, &ypos);
+        
+        if(firstMouse)
+        {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+        }
+        
+        glm::vec3 lastPoint = trackBallmapping(lastX, lastY);
+        glm::vec3 newPoint = trackBallmapping((float)xpos, (float)ypos);
+        
+        if(lastPoint != newPoint)
+        {
+            glm::vec3 axis = glm::cross(lastPoint,newPoint);
+            float c = glm::dot(lastPoint,newPoint);
+            float d = glm::acos(c);
+            
+            glm::vec4 newcampos = glm::rotate(glm::mat4(1.0f), d*2.0f, axis) * glm::vec4(cam_pos,1.0f);
+            
+            cam_pos.x = newcampos.x;
+            cam_pos.y = newcampos.y;
+            cam_pos.z = newcampos.z;
+            
+            cam_front.x = -cam_pos.x;
+            cam_front.y = -cam_pos.y;
+            cam_front.z = -cam_pos.z;
+            
+            lastX = xpos;
+            lastY = ypos;
+        }
+    }
+     
+}
+
+void Window::mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
+        leftPress = true;
+        
+    }
+    else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+    {
+        leftPress = false;
+        firstMouse = true;
+    }
+    else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+    {
+        rightPress = true;
+    }
+    else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+    {
+        rightPress = false;
+        firstMouse = true;
+    }
+    
+}
+
+void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+
+    //if (fov >= 1.0f && fov <= 45.0f)
+    if (fov >= 1.0f && fov <= 90.0f)
+        fov -= yoffset;
+    if (fov <= 1.0f)
+        fov = 1.0f;
+    if (fov >= 90.0f)
+        fov = 90.0f;
+     
+    /*
+    cam_pos.z *= yoffset * 0.5;
+    cam_pos.x *= yoffset * 0.5;
+    cam_pos.y *= yoffset * 0.5;
+    
+    cam_front.x = -cam_pos.x;
+    cam_front.y = -cam_pos.y;
+    cam_front.z = -cam_pos.z;
+    */
+    
+}
+
 unsigned int Window::loadCubemap(std::vector<std::string> faces)
 {
     
@@ -504,59 +969,11 @@ GLint Window::loadTexture(char const * path)
     return textureID;
 }
 
-// renders the 3D scene
-// --------------------
-void Window::renderScene(GLuint shader)
-{
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, botTexture);
-    // floor
-    GLint modelLoc = glGetUniformLocation(shader, "model");
-    glm::mat4 model = glm::mat4(1);
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-    glBindVertexArray(planeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-    
-    /*
-    model = glm::mat4(1);
-    model = glm::translate(model, glm::vec3(0.0f, 1.5f, 0.0));
-    model = glm::scale(model, glm::vec3(0.5f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderCube();
-     */
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, woodTexture);
-    // cubes
-    model = glm::mat4(1);
-    model = glm::translate(model, glm::vec3(0.0f, 1.5f, 0.0));
-    model = glm::scale(model, glm::vec3(0.5f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderCube();
-    
-    model = glm::mat4(1);
-    model = glm::translate(model, glm::vec3(2.0f, 0.0f, 1.0));
-    model = glm::scale(model, glm::vec3(0.5f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderCube();
-    
-    model = glm::mat4(1);
-    model = glm::translate(model, glm::vec3(-1.0f, 0.0f, 2.0));
-    model = glm::rotate(model, glm::radians(60.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
-    model = glm::scale(model, glm::vec3(0.25));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderCube();
-    
-    
-}
-
 // -------------------------------------------------
 GLuint VBO2;
 
 void Window::renderCube()
 {
-   
     
     // initialize (if necessary)
     if (cubeVAO == 0)
@@ -616,8 +1033,8 @@ void Window::renderCube()
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        //glEnableVertexAttribArray(2);
+        //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
@@ -626,198 +1043,5 @@ void Window::renderCube()
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
     
-    
-    
-}
-
-// renderQuad() renders a 1x1 XY quad in NDC
-// -----------------------------------------
-
-void Window::renderQuad()
-{
-    if (quadVAO == 0)
-    {
-        GLfloat quadVertices[] = {
-            // positions        // texture Coords
-            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-            1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        };
-        // setup plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    }
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-}
-
-/*
-void Window::renderObj(Cube*)
-{
-    
-}
- */
-
-
-glm::vec3 Window::trackBallmapping(float x,float y)
-{
-    //printf("width and height is %d %d\n", width, height);
-    glm::vec3 vector;
-    float d;
-    vector.x = (2.0f*x - width)/width;
-    vector.y = (height - 2.0f*y)/height;
-    vector.z = 0.0f;
-    
-    d = glm::length(vector);
-    if(d > 1.0f)
-    {
-        d = 1.0f;
-    }
-    
-    vector.z = sqrt(1.001 - d*d);
-    vector = glm::normalize(vector);
-    
-    return vector;
-}
-
-void Window::mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-    //printf("Mouse is called");
-    if(leftPress == true)
-    {
-        
-        glfwGetCursorPos(window, &xpos, &ypos);
-        
-        if(firstMouse)
-        {
-            lastX = xpos;
-            lastY = ypos;
-            firstMouse = false;
-        }
-        
-        
-        //float xoffset = xpos - lastX;
-        //float yoffset = lastY - ypos;
-        
-        
-        //glm::vec3 lastPoint = trackBallmapping(lastX, lastY);
-        //glm::vec3 newPoint = trackBallmapping((float)xpos, (float)ypos);
-        
-        // if(lastPoint != newPoint)
-        // {
-        float xoffset = xpos - lastX;
-        float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-        
-        
-        float sensitivity = 0.2f; // change this value to your liking
-        xoffset *= sensitivity;
-        yoffset *= sensitivity;
-        
-        yaw += xoffset;
-        pitch += yoffset;
-        
-        // make sure that when pitch is out of bounds, screen doesn't get flipped
-        if (pitch > 89.0f)
-            pitch = 89.0f;
-        if (pitch < -89.0f)
-            pitch = -89.0f;
-        
-        glm::vec3 front;
-        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        front.y = sin(glm::radians(pitch));
-        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        cam_front = glm::normalize(front);
-        //}
-        
-        lastX = xpos;
-        lastY = ypos;
-    }
-    
-    else if (rightPress == true)
-    {
-        glfwGetCursorPos(window, &xpos, &ypos);
-        
-        if(firstMouse)
-        {
-            lastX = xpos;
-            lastY = ypos;
-            firstMouse = false;
-        }
-        
-        glm::vec3 lastPoint = trackBallmapping(lastX, lastY);
-        glm::vec3 newPoint = trackBallmapping((float)xpos, (float)ypos);
-        
-        if(lastPoint != newPoint)
-        {
-            glm::vec3 axis = glm::cross(lastPoint,newPoint);
-            float c = glm::dot(lastPoint,newPoint);
-            float d = glm::acos(c);
-            
-            glm::vec4 newcampos = glm::rotate(glm::mat4(1.0f), d*2.0f, axis) * glm::vec4(cam_pos,1.0f);
-            
-            //std::cout << newcampos.x << std::endl;
-            
-            cam_pos.x = newcampos.x;
-            cam_pos.y = newcampos.y;
-            cam_pos.z = newcampos.z;
-            
-            
-            cam_front.x = -cam_pos.x;
-            cam_front.y = -cam_pos.y;
-            cam_front.z = -cam_pos.z;
-            
-            
-            lastX = xpos;
-            lastY = ypos;
-        }
-    }
-}
-
-void Window::mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-{
-    
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-    {
-        //printf("hahaha\n");
-        leftPress = true;
-        firstMouse = true;
-    }
-    else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-    {
-        //printf("lololo\n");
-        leftPress = false;
-        
-    }
-    else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-    {
-        rightPress = true;
-    }
-    else if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-    {
-        rightPress = false;
-        firstMouse = true;
-    }
-    
-}
-
-void Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    
-    //if (fov >= 1.0f && fov <= 45.0f)
-    if (fov >= 1.0f && fov <= 90.0f)
-        fov -= yoffset;
-    if (fov <= 1.0f)
-        fov = 1.0f;
-    if (fov >= 90.0f)
-        fov = 90.0f;
     
 }

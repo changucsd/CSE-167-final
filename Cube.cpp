@@ -8,12 +8,9 @@ Cube::Cube(const char* filepath)
 
     parse(filepath);
     
-    //cubeTexture = loadTexture("");
-    
-    //printf("Size is %lu \n", vertices.size());
+    printf("Vertices is %lu \n", vertices.size());
     //printf("Size is %lu \n", normals.size());
-    //printf("Size is %lu \n", indices.size());
-  
+    printf("Indices is %lu \n", indices.size());
     
     //printf("%f, %f, %f\n",dimensionX,dimensionY,dimensionZ);
     
@@ -25,7 +22,7 @@ Cube::Cube(const char* filepath)
     distanceY = maxY - minY;
     distanceZ = maxZ - minZ;
    
-    float zoom;
+    float zoom = 0;
     
     if(distanceX >= distanceY && distanceX >= dimensionZ)
     {
@@ -47,10 +44,9 @@ Cube::Cube(const char* filepath)
     
     for(int i = 0;  i < vertices.size(); i ++)
     {
-        vertices[i].x = (vertices[i].x -(dimensionX/2.0f))*8.0F/zoom;
-        vertices[i].y = (vertices[i].y -(dimensionY/2.0f))*8.0F/zoom;
-        vertices[i].z = (vertices[i].z -(dimensionZ/2.0f))*8.0F/zoom;
-        
+        vertices[i].x = (vertices[i].x -(dimensionX/2.0f))*6.0F/zoom;
+        vertices[i].y = (vertices[i].y -(dimensionY/2.0f))*6.0F/zoom;
+        vertices[i].z = (vertices[i].z -(dimensionZ/2.0f))*6.0F/zoom;
     }
     
     
@@ -250,6 +246,7 @@ void Cube::parse(const char* filepath)
                 fscanf(file,"%f %f %f",&r,&g,&b);
                 //printf(" Prev Value is %f %f %f \n", r, g, b);
                 
+                /*
                 normal = r*r + g*g + b*b;
                 normal = sqrt(normal);
                 
@@ -258,8 +255,9 @@ void Cube::parse(const char* filepath)
                 g = g/normal;
                 
                 b = b/normal;
+                */
                 
-                normals.push_back(glm::vec3(r,g,b));
+                normals.push_back(glm::normalize(glm::vec3(r,g,b)));
                 //printf(" After Value is %f %f %f \n", r, g, b);
                 while (c1 != '\n')   // read through this line
                 {
@@ -276,9 +274,6 @@ void Cube::parse(const char* filepath)
                 indices.push_back(a-1);
                 indices.push_back(c-1);
                 indices.push_back(e-1);
-                //indices.push_back(d);
-                //indices.push_back(e);
-                //indices.push_back(f);
                 while (c1 != '\n')   // read through this line
                 {
                     c1 = fgetc(file);
