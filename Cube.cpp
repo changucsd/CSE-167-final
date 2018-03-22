@@ -8,9 +8,9 @@ Cube::Cube(const char* filepath)
 
     parse(filepath);
     
-    printf("Vertices is %lu \n", vertices.size());
+    //printf("Vertices is %lu \n", vertices.size());
     //printf("Size is %lu \n", normals.size());
-    printf("Indices is %lu \n", indices.size());
+    //printf("Indices is %lu \n", indices.size());
     
     //printf("%f, %f, %f\n",dimensionX,dimensionY,dimensionZ);
     
@@ -39,7 +39,7 @@ Cube::Cube(const char* filepath)
         zoom = distanceZ;
     }
     
-    printf("Zoom is %f\n", zoom);
+    //printf("Zoom is %f\n", zoom);
     
     
     for(int i = 0;  i < vertices.size(); i ++)

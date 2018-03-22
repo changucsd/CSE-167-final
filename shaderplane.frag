@@ -17,6 +17,8 @@ uniform vec3 viewPos;
 uniform vec3 myColor;
 uniform float shadowC;
 
+uniform float winter;
+
 uniform float terrain;
 
 const int levels = 3;
@@ -68,33 +70,59 @@ void main()
     
     if(terrain == 1.0f)
     {
-        
-        if(fs_in.FragPos.y < -2.0f)
+        if(winter == 1.0f)  // winte mode
         {
-            color = vec3(0.0f, 0.4f, 1.0f);
-        }
-        else if (fs_in.FragPos.y < -1.0f)
-        {
-            color = vec3(1.0f,1.0f,0.8f);
+            if(fs_in.FragPos.y < -4.0f)
+            {
+                color = vec3(0.0f, 0.4f, 1.0f);
+            }
+            else if (fs_in.FragPos.y < -2.0f)
+            {
+                color = vec3(1.0f,1.0f,0.8f);
+            }
+            else
+            {
+                color = vec3(1.0f,1.0f,1.0f);
+            }
         }
         else
         {
-            color = myColor;
+            if(fs_in.FragPos.y < -2.0f)
+            {
+                color = vec3(0.0f, 0.4f, 1.0f);
+            }
+            else if (fs_in.FragPos.y < -1.0f)
+            {
+                color = vec3(1.0f,1.0f,0.8f);
+            }
+            else
+            {
+                color = myColor;
+            }
         }
+
          
         //color = vec3(0.0f, 0.4f, 0.1f);
     }
     
     else
     {
-        color = myColor;
+        if(winter == 1.0f)  // winte mode
+        {
+            color = vec3(1.0f,1.0f,1.0f);
+        }
+        else
+        {
+            color = myColor;
+        }
+ 
     }
     
     
     vec3 normal = normalize(fs_in.Normal);
     vec3 lightColor = vec3(0.5);
     //vec3 lightDir = normalize(lightPos - fs_in.FragPos);
-    vec3 lightDir = normalize(vec3(0,1,0));
+    vec3 lightDir = normalize(lightPos);
     
     vec3 L = lightDir;
     vec3 V = normalize( viewPos - fs_in.FragPos);
@@ -106,18 +134,18 @@ void main()
     // diffuse
     
     float diff = max(dot(lightDir, normal), 0.0);
-    /*
+    
     vec3 diffuse;
     if (diff > 0.75)
         diffuse = lightColor;
     else if (diff > 0.5)
-        diffuse = lightColor * 0.3;
+        diffuse = lightColor * 0.6;
     else if (diff > 0.25)
-        diffuse = lightColor * 0.3 * 0.3;
+        diffuse = lightColor * 0.6 * 0.6;
     else
-        diffuse = lightColor * 0.3 * 0.3 * 0.3;
-    */
-    vec3 diffuse = diff * lightColor * floor(diff * levels) * scaleFactor;;
+        diffuse = lightColor * 0,0;
+    
+    //vec3 diffuse = diff * lightColor * floor(diff * levels) * scaleFactor;;
     
     // specular
     vec3 viewDir = normalize(viewPos - fs_in.FragPos);
@@ -137,11 +165,19 @@ void main()
     
     // toon shading
     float specMask = (pow(dot(H, normal), 32.0) > 0.4) ? 1 : 0;
-    float edgeDetection = (dot(V, normal) > 0.01) ? 1 : 0;
+    float edgeDetection = (dot(V, normal) > 0.4) ? 1 : 0;
     
     //vec3 lighting = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;
-    vec3 lighting = edgeDetection* (ambient + (1.0 - shadow) * (diffuse + specular * specMask)) * color;
+    vec3 lighting;
     //vec3 lighting = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;
+    if(terrain == 1.0f)
+    {
+        lighting =  (ambient + (1.0 - shadow) * (diffuse + specular * specMask)) * color;
+    }
+    else
+    {
+        lighting = edgeDetection* (ambient + (1.0 - shadow) * (diffuse + specular * specMask)) * color;
+    }
     
     FragColor = vec4(lighting, 1.0);
     

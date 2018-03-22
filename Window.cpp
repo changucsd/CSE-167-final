@@ -44,6 +44,8 @@ float pitch =  0.0f;
 float fov   =  45.0f;
 
 int treeLevel;
+bool changelight;
+float winterMode;
 
 glm::mat4 skyP;
 
@@ -98,7 +100,8 @@ glm::vec3 cam_pos(0.0f, 20.0f, 35.0f);		// e  | Position of camera
 glm::vec3 cam_front(0.0f, -20.0f, -35.0f);	// d  | This is where the camera looks at
 glm::vec3 cam_up(0.0f, 1.0f, 0.0f);			// up | What orientation "up" is
 
-glm::vec3 lightPos(0.0f, 10.0f, 0.0f);
+glm::vec3 lightPos(0.0f, 50.0f, 0.0f);
+glm::vec3 lightCopy(0.0f, 50.0f, 0.0f);
 
 int Window::width;
 int Window::height;
@@ -169,14 +172,12 @@ void Window::initialize_objects()
     bear = new Cube("bear.obj");
     bunny = new Cube("bunny.obj");
 
-
-    
     treeGenerator = new TreeGenerator();
     treeLevel = 1;
 
-    theTree = treeGenerator->generateTree(treeLevel);
-    theTree1 = treeGenerator->generateTree(treeLevel);
-    theTree2 = treeGenerator->generateTree(treeLevel);
+    theTree = treeGenerator->generateTree(treeLevel,1);
+    theTree1 = treeGenerator->generateTree(treeLevel,2);
+    theTree2 = treeGenerator->generateTree(treeLevel,3);
     
     terrain = new TerrainGenerator();
     
@@ -213,10 +214,8 @@ void Window::initialize_objects()
     Skyshader = LoadShaders(VERTEX_Sky_PATH, FRAGMENT_Sky_PATH);
 
     
-   
     glEnable(GL_DEPTH_TEST);
-    
-    
+
     // --------------------
     glUseProgram(shaderPlane);
     glUniform1i(glGetUniformLocation(shaderPlane,  "diffuseTexture"), 0);
@@ -284,7 +283,7 @@ void Window::initialize_objects()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
 
     glUseProgram(debugDepthQuad);
     glUniform1i(glGetUniformLocation(debugDepthQuad,  "depthMap"), 0);
@@ -299,15 +298,11 @@ void Window::clean_up()
     delete(bear);
     delete(dragon);
 
-    
-    
 	glDeleteProgram(shaderProgram);
     glDeleteProgram(shaderPlane);
     glDeleteProgram(simpleDepthShader);
     glDeleteProgram(debugDepthQuad);
     glDeleteProgram(Skyshader);
-
-    
 
     glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &quadVBO);
@@ -380,15 +375,14 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
     
     shadow = 1.0f;
     shadowmap = false;
+    changelight = false;
+    
+    winterMode = -1.0f;
     
 	glViewport(0, 0, width, height);
 
 	if (height > 0)
 	{
-        /*
-		P = glm::perspective(45.0f, (float)width / (float)height, 0.1f, 100.0f);
-		V = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
-        */
         P = glm::perspective(glm::radians(fov), (float)width / (float)height, 0.1f, 1500.0f);
         skyP = P;
         V = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
@@ -398,32 +392,28 @@ void Window::resize_callback(GLFWwindow* window, int width, int height)
 
 void Window::idle_callback()
 {
-	// Call the update function the cube
-	//cube->update();
+
     P = glm::perspective(glm::radians(fov), (float)width / (float)height, 0.1f, 1500.0f);
     V = glm::lookAt(cam_pos, cam_pos + cam_front, cam_up);
+    
+    if(changelight == true)
+    {
+        lightPos.x = lightCopy.x+ cos(glfwGetTime()) * 10.0f;
+        lightPos.y = lightCopy.y+ sin(glfwGetTime()) * 1.0f;
+    }
+    
 }
 
 void Window::display_callback(GLFWwindow* window)
 {
-	// Clear the color and depth buffers
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    
-    /*
-	// Use the shader of programID
-	glUseProgram(shaderProgram);
-	
-	// Render the cube
-	cube->draw(shaderProgram);
-    */
 
     // render
     // ------
     //glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    float near_plane = 1.0f, far_plane = 20.0f;
+    float near_plane = 1.0f, far_plane = 60.0f;
     glm::mat4 lightProjection = glm::ortho(-30.0f, 30.0f, -30.0f, 30.0f, near_plane, far_plane);
     glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 0.0, 1.0)); // light position!
     glm::mat4 lightSpaceMatrix = lightProjection * lightView;
@@ -458,9 +448,9 @@ void Window::display_callback(GLFWwindow* window)
     glUniformMatrix4fv(glGetUniformLocation(shaderPlane, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
     
     glUniform1f(glGetUniformLocation(shaderPlane, "shadowC"), shadow);
+    glUniform1f(glGetUniformLocation(shaderPlane, "winter"),winterMode);
     
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, woodTexture);
+
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, depthMap);
     renderScene(shaderPlane);
@@ -505,8 +495,6 @@ void Window::display_callback(GLFWwindow* window)
     }
     
 
-    
-    
 	// Swap buffers
 	glfwSwapBuffers(window);
     // Gets events, including input such as keyboard and mouse or window resizing
@@ -572,19 +560,29 @@ void Window::key_callback(GLFWwindow* window, int key, int scancode, int action,
             delete theTree;
             
             treeLevel += 1;
-            if(treeLevel >4)
+            if(treeLevel >3)
             {
                 treeLevel = 1;
             }
             
-            theTree = treeGenerator->generateTree(treeLevel);
-            theTree1 = treeGenerator->generateTree(treeLevel);
-            theTree2 = treeGenerator->generateTree(treeLevel);
+            theTree = treeGenerator->generateTree(treeLevel,1);
+            theTree1 = treeGenerator->generateTree(treeLevel,2);
+            theTree2 = treeGenerator->generateTree(treeLevel,3);
             
             treePos->addChild(theTree);
             treePos1->addChild(theTree1);
             treePos2->addChild(theTree2);
             
+        }
+        
+        else if(key == GLFW_KEY_S)
+        {
+            changelight = !changelight;
+        }
+        
+        else if(key == GLFW_KEY_W)
+        {
+            winterMode = -winterMode;
         }
 	}
 }
@@ -600,6 +598,7 @@ void Window::renderScene(GLuint shader)
     glm::vec3 setColor;
     
     glUniform1f(glGetUniformLocation(shader, "terrain"),0.0f);
+
     
     setColor = glm::vec3(0.658824,0.658824,0.658824);
     glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
@@ -619,7 +618,7 @@ void Window::renderScene(GLuint shader)
     model = glm::mat4(1);
     model = glm::translate(model, randomPos2);
     model = glm::translate(model, glm::vec3(0,1,0));
-    model = glm::scale(model, glm::vec3(0.3f));
+    model = glm::scale(model, glm::vec3(0.4f));
     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
     renderObj(bunny);
     
@@ -629,74 +628,47 @@ void Window::renderScene(GLuint shader)
     glBindTexture(GL_TEXTURE_2D, woodTexture);
     model = glm::mat4(1);
     model = glm::translate(model, randomPos3);
-    model = glm::translate(model, glm::vec3(0,1,0));
-    model = glm::scale(model, glm::vec3(0.3f));
+    model = glm::translate(model, glm::vec3(0,2,0));
+    model = glm::scale(model, glm::vec3(0.6f));
     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
     renderObj(dragon);
     
-    glUniform1f(glGetUniformLocation(shader, "terrain"),0.0f);
-    
-    setColor = glm::vec3(0.658824,0.658824,0.658824);
-    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, woodTexture);
-    model = glm::mat4(1);
-    model = glm::translate(model, randomPos4);
-    model = glm::translate(model, glm::vec3(0,1,0));
-    model = glm::scale(model, glm::vec3(0.3f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderObj(bear);
-    
-    setColor = glm::vec3(1.0,0.8,1.0);
-    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, woodTexture);
-    model = glm::mat4(1);
-    model = glm::translate(model, randomPos5);
-    model = glm::translate(model, glm::vec3(0,1,0));
-    model = glm::scale(model, glm::vec3(0.3f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderObj(bunny);
-    
-    setColor = glm::vec3(1, 0.2, 0);
-    glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, woodTexture);
-    model = glm::mat4(1);
-    model = glm::translate(model, randomPos6);
-    model = glm::translate(model, glm::vec3(0,1,0));
-    model = glm::scale(model, glm::vec3(0.3f));
-    glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    renderObj(dragon);
-     
-    
-    /*
-     setColor = glm::vec3(0.419608,0.556863,0.137255);
-     glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
-     glActiveTexture(GL_TEXTURE0);
-     glBindTexture(GL_TEXTURE_2D, woodTexture);
-     model = glm::mat4(1);
-     model = glm::translate(model, glm::vec3(1.5f, 0.5f, 0.0f));
-     model = glm::scale(model, glm::vec3(1.0f));
-     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-     renderObj(sphere);
-    
-    
-     setColor = glm::vec3( 0.647059,0.164706,0.164706);
-     glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
-     glActiveTexture(GL_TEXTURE0);
-     glBindTexture(GL_TEXTURE_2D, woodTexture);
-    
-     model = glm::mat4(1);
-     model = glm::translate(model, glm::vec3(-1.5f, 2.0f, 1.0f));
-     model = glm::scale(model, glm::vec3(0.02f));
-     model = glm::rotate(model, 90.0f / 180.0f * glm::pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f)) ;
-    
-     glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-     renderObj(trunk);
-     */
+    if(winterMode == -1) // winter dont render
+    {
+        setColor = glm::vec3(0.658824,0.658824,0.658824);
+        glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, woodTexture);
+        model = glm::mat4(1);
+        model = glm::translate(model, randomPos4);
+        model = glm::translate(model, glm::vec3(0,1,0));
+        model = glm::scale(model, glm::vec3(0.3f));
+        glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        renderObj(bear);
+        
+        setColor = glm::vec3(1.0,0.8,1.0);
+        glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, woodTexture);
+        model = glm::mat4(1);
+        model = glm::translate(model, randomPos5);
+        model = glm::translate(model, glm::vec3(0,1,0));
+        model = glm::scale(model, glm::vec3(0.4f));
+        glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        renderObj(bunny);
+        
+        setColor = glm::vec3(1, 0.2, 0);
+        glUniform3fv(glGetUniformLocation(shader, "myColor"), 1, glm::value_ptr(setColor));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, woodTexture);
+        model = glm::mat4(1);
+        model = glm::translate(model, randomPos6);
+        model = glm::translate(model, glm::vec3(0,2,0));
+        model = glm::scale(model, glm::vec3(0.6f));
+        glUniformMatrix4fv(glGetUniformLocation(shader, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        renderObj(dragon);
+    }
 
-    
     sceneGraph.draw(glm::mat4(1), shader);
     
   
@@ -789,7 +761,7 @@ void Window::mouse_callback(GLFWwindow* window, double xpos, double ypos)
         float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
         
         
-        float sensitivity = 0.2f; // change this value to your liking
+        float sensitivity = 0.5f; // change this value to your liking
         xoffset *= sensitivity;
         yoffset *= sensitivity;
         
@@ -833,7 +805,7 @@ void Window::mouse_callback(GLFWwindow* window, double xpos, double ypos)
             float c = glm::dot(lastPoint,newPoint);
             float d = glm::acos(c);
             
-            glm::vec4 newcampos = glm::rotate(glm::mat4(1.0f), d*2.0f, axis) * glm::vec4(cam_pos,1.0f);
+            glm::vec4 newcampos = glm::rotate(glm::mat4(1.0f), d*1.5f, axis) * glm::vec4(cam_pos,1.0f);
             
             cam_pos.x = newcampos.x;
             cam_pos.y = newcampos.y;
@@ -965,7 +937,7 @@ GLint Window::loadTexture(char const * path)
         stbi_image_free(data);
     }
     
-    printf("Done loading textures\n");
+
     return textureID;
 }
 
